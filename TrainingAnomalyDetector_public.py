@@ -87,24 +87,22 @@ def save_model(model, json_path, weight_path): # Function to save the model
 # Load Training Dataset
 
 def load_dataset_Train_batch(AbnormalPath, NormalPath):
-#    print("Loading training batch")
-
-    batchsize=60       # Each batch contain 60 videos.
-    n_exp=batchsize/2  # Number of abnormal and normal videos
-
-    Num_abnormal = 810  # Total number of abnormal videos in Training Dataset.
-    Num_Normal = 800    # Total number of Normal videos in Training Dataset.
 
 
-    # We assume the features of abnormal videos and normal videos are located in two different folders.
+    batchsize=60       
+    n_exp=batchsize/2  
+    Num_abnormal = 810  
+    Num_Normal = 800   
+
+
     Abnor_list_iter = np.random.permutation(Num_abnormal)
-    Abnor_list_iter = Abnor_list_iter[Num_abnormal-n_exp:] # Indexes for randomly selected Abnormal Videos
+    Abnor_list_iter = Abnor_list_iter[Num_abnormal-n_exp:] 
     Norm_list_iter = np.random.permutation(Num_Normal)
-    Norm_list_iter = Norm_list_iter[Num_Normal-n_exp:]     # Indexes for randomly selected Normal Videos
+    Norm_list_iter = Norm_list_iter[Num_Normal-n_exp:]    
 
 
     AllVideos_Path = AbnormalPath
-    def listdir_nohidden(AllVideos_Path):  # To ignore hidden files
+    def listdir_nohidden(AllVideos_Path): 
         file_dir_extension = os.path.join(AllVideos_Path, '*_C.txt')
         for f in glob.glob(file_dir_extension):
             if not f.startswith('.'):
@@ -112,7 +110,7 @@ def load_dataset_Train_batch(AbnormalPath, NormalPath):
 
     All_Videos=sorted(listdir_nohidden(AllVideos_Path))
     All_Videos.sort()
-    AllFeatures = []  # To store C3D features of a batch
+    AllFeatures = [] 
     print("Loading Abnormal videos Features...")
 
     Video_count=-1
@@ -122,8 +120,7 @@ def load_dataset_Train_batch(AbnormalPath, NormalPath):
         f = open(VideoPath, "r")
         words = f.read().split()
         num_feat = len(words) / 4096
-        # Number of features per video to be loaded. In our case num_feat=32, as we divide the video into 32 segments. Note that
-        # we have already computed C3D features for the whole video and divide the video features into 32 segments. Please see Save_C3DFeatures_32Segments.m as well
+
 
         count = -1;
         VideoFeatues = []
@@ -146,7 +143,7 @@ def load_dataset_Train_batch(AbnormalPath, NormalPath):
     print("Loading Normal videos...")
     AllVideos_Path =  NormalPath
 
-    def listdir_nohidden(AllVideos_Path):  # To ignore hidden files
+    def listdir_nohidden(AllVideos_Path): 
         file_dir_extension = os.path.join(AllVideos_Path, '*_C.txt')
         for f in glob.glob(file_dir_extension):
             if not f.startswith('.'):
@@ -160,7 +157,7 @@ def load_dataset_Train_batch(AbnormalPath, NormalPath):
         f = open(VideoPath, "r")
         words = f.read().split()
         feat_row1 = np.array([])
-        num_feat = len(words) /4096   # Number of features to be loaded. In our case num_feat=32, as we divide the video into 32 segments.
+        num_feat = len(words) /4096  
 
         count = -1;
         VideoFeatues = []
@@ -187,10 +184,9 @@ def load_dataset_Train_batch(AbnormalPath, NormalPath):
 
     for iv in xrange(0, 32*batchsize):
             if iv< th_loop1:
-                AllLabels[iv] = int(0)  # All instances of abnormal videos are labeled 0.  This will be used in custom_objective to keep track of normal and abnormal videos indexes.
+                AllLabels[iv] = int(0) 
             if iv > th_loop2:
-                AllLabels[iv] = int(1)   # All instances of Normal videos are labeled 1. This will be used in custom_objective to keep track of normal and abnormal videos indexes.
-           # print("ALLabels  loaded")
+                AllLabels[iv] = int(1)  
 
     return  AllFeatures,AllLabels
 
@@ -201,26 +197,26 @@ def custom_objective(y_true, y_pred):
     y_true = T.flatten(y_true)
     y_pred = T.flatten(y_pred)
 
-    n_seg = 32  # Because we have 32 segments per video.
+    n_seg = 32 
     nvid = 60
     n_exp = nvid / 2
     Num_d=32*nvid
 
 
-    sub_max = T.ones_like(y_pred) # sub_max represents the highest scoring instants in bags (videos).
-    sub_sum_labels = T.ones_like(y_true) # It is used to sum the labels in order to distinguish between normal and abnormal videos.
-    sub_sum_l1=T.ones_like(y_true)  # For holding the concatenation of summation of scores in the bag.
-    sub_l2 = T.ones_like(y_true) # For holding the concatenation of L2 of score in the bag.
+    sub_max = T.ones_like(y_pred) 
+    sub_sum_labels = T.ones_like(y_true) 
+    sub_sum_l1=T.ones_like(y_true)  
+    sub_l2 = T.ones_like(y_true) 
 
     for ii in xrange(0, nvid, 1):
         # For Labels
         mm = y_true[ii * n_seg:ii * n_seg + n_seg]
-        sub_sum_labels = T.concatenate([sub_sum_labels, T.stack(T.sum(mm))])  # Just to keep track of abnormal and normal vidoes
+        sub_sum_labels = T.concatenate([sub_sum_labels, T.stack(T.sum(mm))])
 
         # For Features scores
         Feat_Score = y_pred[ii * n_seg:ii * n_seg + n_seg]
-        sub_max = T.concatenate([sub_max, T.stack(T.max(Feat_Score))])         # Keep the maximum score of scores of all instances in a Bag (video)
-        sub_sum_l1 = T.concatenate([sub_sum_l1, T.stack(T.sum(Feat_Score))])   # Keep the sum of scores of all instances in a Bag (video)
+        sub_max = T.concatenate([sub_max, T.stack(T.max(Feat_Score))])         
+        sub_sum_l1 = T.concatenate([sub_sum_l1, T.stack(T.sum(Feat_Score))])   
 
         z1 = T.ones_like(Feat_Score)
         z2 = T.concatenate([z1, Feat_Score])
@@ -233,41 +229,31 @@ def custom_objective(y_true, y_pred):
         sub_l2 = T.concatenate([sub_l2, T.stack(z)])
 
 
-    # sub_max[Num_d:] means include all elements after Num_d.
-    # AllLabels =[2 , 4, 3 ,9 ,6 ,12,7 ,18 ,9 ,14]
-    # z=x[4:]
-    #[  6.  12.   7.  18.   9.  14.]
-
-    sub_score = sub_max[Num_d:]  # We need this step since we have used T.ones_like
-    F_labels = sub_sum_labels[Num_d:] # We need this step since we have used T.ones_like
-    #  F_labels contains integer 32 for normal video and 0 for abnormal videos. This because of labeling done at the end of "load_dataset_Train_batch"
 
 
+    sub_score = sub_max[Num_d:]  
+    F_labels = sub_sum_labels[Num_d:] 
 
-    # AllLabels =[2 , 4, 3 ,9 ,6 ,12,7 ,18 ,9 ,14]
-    # z=x[:4]
-    # [ 2 4 3 9]... This shows 0 to 3 elements
 
-    sub_sum_l1 = sub_sum_l1[Num_d:] # We need this step since we have used T.ones_like
+    sub_sum_l1 = sub_sum_l1[Num_d:] 
     sub_sum_l1 = sub_sum_l1[:n_exp]
-    sub_l2 = sub_l2[Num_d:]         # We need this step since we have used T.ones_like
+    sub_l2 = sub_l2[Num_d:]         
     sub_l2 = sub_l2[:n_exp]
 
 
-    indx_nor = theano.tensor.eq(F_labels, 32).nonzero()[0]  # Index of normal videos: Since we labeled 1 for each of 32 segments of normal videos F_labels=32 for normal video
+    indx_nor = theano.tensor.eq(F_labels, 32).nonzero()[0]  
     indx_abn = theano.tensor.eq(F_labels, 0).nonzero()[0]
 
     n_Nor=n_exp
 
-    Sub_Nor = sub_score[indx_nor] # Maximum Score for each of abnormal video
-    Sub_Abn = sub_score[indx_abn] # Maximum Score for each of normal video
-
+    Sub_Nor = sub_score[indx_nor]
+    Sub_Abn = sub_score[indx_abn] 
     z = T.ones_like(y_true)
     for ii in xrange(0, n_Nor, 1):
         sub_z = T.maximum(1 - Sub_Abn + Sub_Nor[ii], 0)
         z = T.concatenate([z, T.stack(T.sum(sub_z))])
 
-    z = z[Num_d:]  # We need this step since we have used T.ones_like
+    z = z[Num_d:] 
     z = T.mean(z, axis=-1) +  0.00008*T.sum(sub_sum_l1) + 0.00008*T.sum(sub_l2)  # Final Loss f
 
     return z
@@ -280,11 +266,11 @@ model.compile(loss=custom_objective, optimizer=adagrad)
 print("Starting training...")
 
 AllClassPath='/newdata/UCF_Anomaly_Dataset/Dataset/CVPR_Data/C3D_Features_Txt/Train/'
-# AllClassPath contains C3D features (.txt file)  of each video. Each text file contains 32 features, each of 4096 dimension
+
 output_dir='/newdata/UCF_Anomaly_Dataset/Dataset/CVPR_Data/Trained_Models/TrainedModel_MIL_C3D/'
-# Output_dir is the directory where you want to save trained weights
+
 weights_path = output_dir + 'weights.mat'
-# weights.mat are the model weights that you will get after (or during) that training
+
 model_path = output_dir + 'model.json'
 
 if not os.path.exists(output_dir):
@@ -300,9 +286,9 @@ time_before = datetime.now()
 
 for it_num in range(num_iters):
 
-    AbnormalPath = os.path.join(AllClassPath, All_class_files[0])  # Path of abnormal already computed C3D features
-    NormalPath = os.path.join(AllClassPath, All_class_files[1])    # Path of Normal already computed C3D features
-    inputs, targets=load_dataset_Train_batch(AbnormalPath, NormalPath)  # Load normal and abnormal video C3D features
+    AbnormalPath = os.path.join(AllClassPath, All_class_files[0]) 
+    NormalPath = os.path.join(AllClassPath, All_class_files[1])  
+    inputs, targets=load_dataset_Train_batch(AbnormalPath, NormalPath) 
     batch_loss =model.train_on_batch(inputs, targets)
     loss_graph = np.hstack((loss_graph, batch_loss))
     total_iterations += 1
@@ -310,7 +296,7 @@ for it_num in range(num_iters):
         print "These iteration=" + str(total_iterations) + ") took: " + str(datetime.now() - time_before) + ", with loss of " + str(batch_loss)
         iteration_path = output_dir + 'Iterations_graph_' + str(total_iterations) + '.mat'
         savemat(iteration_path, dict(loss_graph=loss_graph))
-    if total_iterations % 1000 == 0:  # Save the model at every 1000th iterations.
+    if total_iterations % 1000 == 0:
        weights_path = output_dir + 'weightsAnomalyL1L2_' + str(total_iterations) + '.mat'
        save_model(model, model_path, weights_path)
 
